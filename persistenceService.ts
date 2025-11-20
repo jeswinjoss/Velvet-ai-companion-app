@@ -76,9 +76,7 @@ export const checkAndMigrate = () => {
            if (parsed.profile) {
                const newProfile = { ...parsed.profile, id: generateId(), createdAt: Date.now() };
                saveProfile(newProfile);
-               if (parsed.messages) {
-                   saveChatHistory(newProfile.id, parsed.messages);
-               }
+               if (parsed.messages) saveChatHistory(newProfile.id, parsed.messages);
            }
            localStorage.removeItem('velvet_ai_session');
        } catch(e) { localStorage.removeItem('velvet_ai_session'); }
