@@ -1,0 +1,5 @@
+{
+  "name": "Velvet AI",
+  "description": "An immersive, aesthetic roleplay chat application that generates unique visual personas for your AI companions using Google Gemini and Imagen.",
+  "requestFramePermissions": []
+}
