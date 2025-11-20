@@ -1,12 +1,11 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Chat, GenerateContentResponse } from '@google/genai';
-import { CharacterProfile, Message, ThemeId, MoodType } from '../types';
-import { ChatBubble } from '../components/ChatBubble';
-import { THEMES } from '../themes';
-import { triggerHaptic } from '../utils/haptics';
-import { saveChatHistory } from '../services/persistenceService';
-import { usageService } from '../services/usageService';
+import { CharacterProfile, Message, ThemeId, MoodType } from './types';
+import { ChatBubble } from './ChatBubble';
+import { THEMES } from './themes';
+import { triggerHaptic } from './haptics';
+import { saveChatHistory } from './persistenceService';
+import { usageService } from './usageService';
 
 interface ChatViewProps {
   chatSession: Chat | null;
@@ -73,20 +72,16 @@ export const ChatView: React.FC<ChatViewProps> = ({ chatSession, profile, initia
 
   const sendMessageWithRetry = async (prompt: string, retryCount = 0): Promise<any> => {
       if (!chatSession) throw new Error("No chat session");
-      
-      // Track request start
       usageService.trackRequest();
 
       const performRequest = async () => {
-          const timeoutMs = 20000; // 20s timeout
+          const timeoutMs = 20000; 
           let timeoutId: ReturnType<typeof setTimeout>;
           
           const timeoutPromise = new Promise((_, reject) => {
               timeoutId = setTimeout(() => reject(new Error("REQUEST_TIMEOUT")), timeoutMs);
           });
-
           const apiPromise = chatSession.sendMessageStream({ message: prompt });
-
           try {
               const result = await Promise.race([apiPromise, timeoutPromise]);
               clearTimeout(timeoutId!);
@@ -101,17 +96,12 @@ export const ChatView: React.FC<ChatViewProps> = ({ chatSession, profile, initia
           return await performRequest();
       } catch (error: any) {
           const errStr = JSON.stringify(error) + (error.message || '') + error.toString();
-          
-          // CRITICAL: Check for Quota/Resource Exhausted. Do not retry.
           if (errStr.includes('quota') || errStr.includes('RESOURCE_EXHAUSTED') || errStr.includes('429')) {
-             usageService.triggerCooldown(); // Set 60s cooldown
+             usageService.triggerCooldown(); 
              throw new Error("QUOTA_EXHAUSTED");
           }
-
           const isTransient = errStr.includes('503') || errStr.includes('500') || errStr.includes('fetch failed') || errStr.includes('REQUEST_TIMEOUT');
-          
           if (isTransient && retryCount < 3) {
-              console.log(`Retrying message... Attempt ${retryCount + 1}`);
               const delay = Math.pow(2, retryCount) * 1000;
               await new Promise(resolve => setTimeout(resolve, delay));
               return sendMessageWithRetry(prompt, retryCount + 1);
@@ -124,7 +114,6 @@ export const ChatView: React.FC<ChatViewProps> = ({ chatSession, profile, initia
     e?.preventDefault();
     if (!inputValue.trim() || !chatSession || isTyping) return;
 
-    // Pre-check Usage
     const stats = usageService.getStats();
     if (stats.isRateLimited) {
          setMessages(prev => [...prev, { id: `err-${Date.now()}`, role: 'model', content: `(I'm a bit overwhelmed right now. Let me rest for ${stats.cooldownRemaining} seconds. 🌙)`, timestamp: Date.now() }]);
@@ -158,8 +147,6 @@ export const ChatView: React.FC<ChatViewProps> = ({ chatSession, profile, initia
          if (!text) continue;
          
          fullText += text;
-         
-         // Filter Mood tag
          const moodMatch = fullText.match(/\[MOOD:\s*([a-zA-Z]+)\]/);
          let display = fullText;
          
@@ -168,7 +155,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ chatSession, profile, initia
             if (MOOD_CONFIG[m]) setCurrentMood(m);
             display = fullText.replace(moodMatch[0], '').trimStart();
          } else if (fullText.trim().startsWith('[')) {
-            display = ''; // Wait for tag completion
+            display = ''; 
          }
 
          if (!display && !isFirst) continue;
@@ -182,24 +169,19 @@ export const ChatView: React.FC<ChatViewProps> = ({ chatSession, profile, initia
          }
       }
 
-      // Handle Empty/Safety Blocked Responses
       if (!fullText && isFirst) {
          throw new Error("EMPTY_RESPONSE");
       }
 
     } catch (error: any) {
-      console.error("Chat Error", error);
-      
       let errMsg = "(I got distracted... say again?)";
       if (error.message === 'QUOTA_EXHAUSTED') {
           errMsg = "(I'm feeling really drained right now... let's take a break and talk later. 🌙)";
       } else if (error.message === 'EMPTY_RESPONSE') {
           errMsg = "(I don't know how to respond to that...)";
       }
-
       setMessages(prev => [...prev, { id: `err-${Date.now()}`, role: 'model', content: errMsg, timestamp: Date.now() }]);
     } finally {
-       // ALWAYS ensure typing state is reset
        setIsTyping(false);
     }
   };
@@ -219,15 +201,10 @@ export const ChatView: React.FC<ChatViewProps> = ({ chatSession, profile, initia
 
   return (
     <div className={`flex flex-col h-full w-full relative transition-colors duration-500 ease-in-out ${theme.containerBg} ${theme.fontFamily}`}>
-      
-      {/* Header */}
       <div className={`flex-none flex items-center justify-between px-5 py-4 backdrop-blur-xl border-b z-20 ${theme.headerBg} ${theme.menuBorder || 'border-white/5'}`}>
         <div className="flex items-center space-x-3.5">
             <div className="relative">
-                <img 
-                  src={profile.avatarUrl || `https://ui-avatars.com/api/?name=${profile.name}`} 
-                  className={`w-10 h-10 rounded-full object-cover ring-2 shadow-md ${theme.id === 'pastel' ? 'ring-white' : 'ring-brand-500'}`}
-                />
+                <img src={profile.avatarUrl || `https://ui-avatars.com/api/?name=${profile.name}`} className={`w-10 h-10 rounded-full object-cover ring-2 shadow-md ${theme.id === 'pastel' ? 'ring-white' : 'ring-brand-500'}`} />
                 <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full ring-2 ring-dark-900 ${moodStyle.color} animate-pulse`}></span>
             </div>
             <div>
@@ -240,7 +217,6 @@ export const ChatView: React.FC<ChatViewProps> = ({ chatSession, profile, initia
                 </div>
             </div>
         </div>
-
         <div className="relative" ref={menuRef}>
           <button onClick={() => { triggerHaptic(10); setIsMenuOpen(!isMenuOpen); }} className="p-2 text-gray-300 hover:text-white">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
@@ -263,8 +239,6 @@ export const ChatView: React.FC<ChatViewProps> = ({ chatSession, profile, initia
           )}
         </div>
       </div>
-
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5 scroll-smooth no-scrollbar">
         {messages.length === 0 && !isTyping && (
             <div className="h-full flex flex-col items-center justify-center opacity-50">
@@ -281,8 +255,6 @@ export const ChatView: React.FC<ChatViewProps> = ({ chatSession, profile, initia
         )}
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Input */}
       <div className={`flex-none p-4 backdrop-blur-sm ${theme.headerBg}`}>
         <form onSubmit={handleSendMessage} className={`relative flex items-center p-1.5 rounded-[2rem] border transition-all ${isInputFocused ? 'ring-1 ' + theme.accentColor : ''} ${theme.inputBg} ${theme.inputBorder}`}>
             <input
@@ -301,7 +273,6 @@ export const ChatView: React.FC<ChatViewProps> = ({ chatSession, profile, initia
             </button>
         </form>
       </div>
-
       {reactingMessageId && (
         <div className="absolute inset-0 z-50 bg-black/40 backdrop-blur-[1px] flex items-end justify-center pb-24" onClick={() => setReactingMessageId(null)}>
             <div className={`p-3 rounded-full flex space-x-4 shadow-xl ${theme.modelBubbleBg} animate-slide-up`} onClick={(e) => e.stopPropagation()}>
