@@ -1,5 +1,5 @@
 import { GoogleGenAI, Chat } from "@google/genai";
-import { CharacterProfile, Message } from "../types";
+import { CharacterProfile, Message } from "./types";
 
 const getClient = () => {
   const apiKey = (process as any).env.API_KEY;
@@ -37,7 +37,6 @@ export const generatePersonaImage = async (
     const res = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: refineReq,
-      // Fix: Cast to any to bypass strict type checking
       config: { safetySettings: SAFETY_SETTINGS as any }
     });
     if (res.text) refinedPrompt = res.text.trim();
@@ -47,7 +46,8 @@ export const generatePersonaImage = async (
     const imgRes = await ai.models.generateImages({
       model: 'imagen-4.0-generate-001',
       prompt: refinedPrompt,
-      config: { numberOfImages: 1, outputMimeType: 'image/jpeg', aspectRatio: '1:1', safetySettings: SAFETY_SETTINGS as any },
+      // FIX: Removed safetySettings here as it causes type errors in this SDK version for images
+      config: { numberOfImages: 1, outputMimeType: 'image/jpeg', aspectRatio: '1:1' },
     });
     const b64 = imgRes.generatedImages?.[0]?.image?.imageBytes;
     if (b64) return `data:image/jpeg;base64,${b64}`;
@@ -95,7 +95,6 @@ export const generateRandomProfileData = async (genderPreference: 'male' | 'fema
         const text = res.text || '{}';
         return JSON.parse(text);
     } catch (e) {
-        console.error("Random profile generation failed", e);
         return {
             name: "Alex",
             relationship: "Stranger",
@@ -108,19 +107,8 @@ export const generateRandomProfileData = async (genderPreference: 'male' | 'fema
 
 export const createChatSession = (profile: CharacterProfile, historyMessages: Message[] = []): Chat => {
   const ai = getClient();
-  
   const mode = profile.intimacyLevel === 'explicit' ? 'FLIRTY/BOLD/INTENSE' : 'NORMAL/TEASING/FRIENDLY';
-  
-  const sys = `
-Role: ${profile.name}, ${profile.relationship}. ${mode}.
-Traits: ${profile.traits}.
-Ref: If user uses Manglish/Malayalam, reply naturally in same mix.
-Rules:
-1. Mobile text style. Short. Casual. NO essays.
-2. Match user language (Manglish/Eng/Mal).
-3. Start msg with [MOOD: X]. X=Happy/Flirty/Sad/etc.
-4. Be human. Use 'U', 'Ur', lol, etc.
-`.trim();
+  const sys = `Role: ${profile.name}, ${profile.relationship}. ${mode}. Traits: ${profile.traits}. If user uses Manglish/Malayalam, reply naturally in same mix. Rules: 1. Mobile text style. Short. Casual. NO essays. 2. Match user language (Manglish/Eng/Mal). 3. Start msg with [MOOD: X]. X=Happy/Flirty/Sad/etc. 4. Be human. Use 'U', 'Ur', lol, etc.`.trim();
 
   const history = historyMessages.map(msg => ({
     role: msg.role,
@@ -140,53 +128,25 @@ Rules:
 
 export const generateSecurityChallenge = async (): Promise<{ question: string; answer: string }> => {
   const ai = getClient();
-  const prompt = `
-    Generate a clever logic puzzle or riddle for user verification.
-    Output ONLY valid JSON format:
-    {
-      "question": "The riddle content...",
-      "answer": "The solution keyword..."
-    }
-    Do not include markdown.
-  `;
-
+  const prompt = `Generate a clever logic puzzle or riddle for user verification. Output ONLY valid JSON: { "question": "riddle...", "answer": "solution..." } No markdown.`;
   try {
     const res = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: { responseMimeType: 'application/json', safetySettings: SAFETY_SETTINGS as any }
     });
-    
     const text = res.text || '{}';
     return JSON.parse(text);
   } catch (e) {
-    return {
-      question: "I have cities, but no houses. I have mountains, but no trees. I have water, but no fish. What am I?",
-      answer: "Map"
-    };
+    return { question: "I have cities, but no houses. I have mountains, but no trees. What am I?", answer: "Map" };
   }
 };
 
 export const validateSecurityAnswer = async (question: string, answer: string, userAnswer: string): Promise<boolean> => {
     const ai = getClient();
-    const prompt = `
-    Riddle: ${question}
-    Correct Answer: ${answer}
-    User Input: ${userAnswer}
-    
-    Is the User Input a correct answer (or synonym/close enough) to the riddle?
-    Reply with ONLY "TRUE" or "FALSE".
-    `;
-
+    const prompt = `Riddle: ${question} Correct Answer: ${answer} User Input: ${userAnswer} Is the User Input a correct answer? Reply ONLY "TRUE" or "FALSE".`;
     try {
-        const res = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: { safetySettings: SAFETY_SETTINGS as any }
-        });
-        const text = (res.text || '').trim().toUpperCase();
-        return text.includes('TRUE');
-    } catch (e) {
-        return userAnswer.toLowerCase().includes(answer.toLowerCase());
-    }
+        const res = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { safetySettings: SAFETY_SETTINGS as any } });
+        return (res.text || '').trim().toUpperCase().includes('TRUE');
+    } catch (e) { return userAnswer.toLowerCase().includes(answer.toLowerCase()); }
 };
