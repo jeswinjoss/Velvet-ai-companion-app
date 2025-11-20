@@ -1,9 +1,9 @@
 
-import { GoogleGenAI, Chat, Modality, Content, Part } from "@google/genai";
+import { GoogleGenAI, Chat } from "@google/genai";
 import { CharacterProfile, Message } from "../types";
 
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = (process as any).env.API_KEY;
   if (!apiKey) {
     console.warn("API_KEY is missing in process.env. Ensure it is set in your environment configuration.");
   }
@@ -61,7 +61,8 @@ export const generatePersonaImage = async (
     const flashRes = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts: [{ text: refinedPrompt }] },
-      config: { responseModalities: [Modality.IMAGE], safetySettings: SAFETY_SETTINGS },
+      // Note: Modality enum removed to fix build, using string literal or standard config
+      config: { responseModalities: ['IMAGE'], safetySettings: SAFETY_SETTINGS },
     });
     const d = flashRes.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (d) return `data:image/png;base64,${d}`;
@@ -128,9 +129,9 @@ Rules:
 4. Be human. Use 'U', 'Ur', lol, etc.
 `.trim();
 
-  const history: Content[] = historyMessages.map(msg => ({
+  const history = historyMessages.map(msg => ({
     role: msg.role,
-    parts: [{ text: msg.content } as Part]
+    parts: [{ text: msg.content }]
   }));
 
   return ai.chats.create({
