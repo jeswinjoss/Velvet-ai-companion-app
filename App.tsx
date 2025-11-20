@@ -1,18 +1,16 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Chat } from '@google/genai';
-import { SetupView } from './views/SetupView';
-import { ChatView } from './views/ChatView';
-import { HomeView } from './views/HomeView';
-import { LoadingScreen } from './components/LoadingScreen';
-import { SplashScreen } from './components/SplashScreen';
-import { UpdateOverlay } from './components/UpdateOverlay';
-import { Toast } from './components/Toast';
+import { SetupView } from './SetupView';
+import { ChatView } from './ChatView';
+import { HomeView } from './HomeView';
+import { LoadingScreen } from './LoadingScreen';
+import { SplashScreen } from './SplashScreen';
+import { UpdateOverlay } from './UpdateOverlay';
+import { Toast } from './Toast';
 import { AppState, CharacterProfile, Message } from './types';
-import { generatePersonaImage, createChatSession, generateRandomProfileData } from './services/geminiService';
-import { getAllProfiles, saveProfile, getChatHistory, deleteProfile, checkAndMigrate, generateId } from './services/persistenceService';
-import { triggerHaptic } from './utils/haptics';
-import { usageService } from './services/usageService';
+import { generatePersonaImage, createChatSession, generateRandomProfileData } from './geminiService';
+import { getAllProfiles, saveProfile, getChatHistory, deleteProfile, checkAndMigrate, generateId } from './persistenceService';
+import { usageService } from './usageService';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.SETUP);
@@ -114,7 +112,6 @@ const App: React.FC = () => {
     setProfileToEdit(null);
     
     try {
-      // Generate Image
       usageService.trackRequest();
       const avatarUrl = await generatePersonaImage(
         newProfile.name, 
@@ -337,7 +334,7 @@ const App: React.FC = () => {
                 <div className="absolute inset-0 z-30 bg-black/95 flex flex-col animate-fade-in">
                      {/* Close Button */}
                      <button 
-                        onClick={() => { triggerHaptic(10); setRandomCandidate(null); setAppState(AppState.HOME); }}
+                        onClick={() => { setRandomCandidate(null); setAppState(AppState.HOME); }}
                         className="absolute top-6 right-6 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white z-50 border border-white/10 shadow-lg"
                      >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -360,7 +357,7 @@ const App: React.FC = () => {
                      {/* Action Buttons */}
                      <div className="absolute bottom-8 left-0 w-full px-8 flex items-center justify-between">
                          <button 
-                            onClick={() => { triggerHaptic(10); handleRandomReject(); }}
+                            onClick={() => handleRandomReject()}
                             className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/50 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
                          >
                              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -369,7 +366,7 @@ const App: React.FC = () => {
                          <p className="text-gray-500 font-medium uppercase text-xs tracking-widest">Accept Companion?</p>
                          
                          <button 
-                            onClick={() => { triggerHaptic(10); handleRandomApprove(); }}
+                            onClick={() => handleRandomApprove()}
                             className="w-16 h-16 rounded-full bg-green-500/20 border border-green-500/50 text-green-500 flex items-center justify-center hover:bg-green-500 hover:text-white transition-all"
                          >
                              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -383,7 +380,6 @@ const App: React.FC = () => {
                 <UpdateOverlay onComplete={(found) => {
                     setAppState(AppState.HOME);
                     if(found) {
-                        // Simulate reload
                         window.location.reload(); 
                     } else {
                         showToast("App is latest version", "info");
